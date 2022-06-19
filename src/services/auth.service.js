@@ -17,7 +17,7 @@ export default class AuthService {
    * @param {neo4j.Driver} driver
    */
   // tag::constructor[]
-  constructor(driver) {
+  constructor (driver) {
     this.driver = driver
   }
   // tag::constructor[]
@@ -37,43 +37,51 @@ export default class AuthService {
    * @returns {Promise<Record<string, any>>}
    */
   // tag::register[]
-  async register(email, plainPassword, name) {
+  async register (email, plainPassword, name) {
     const encrypted = await hash(plainPassword, parseInt(SALT_ROUNDS))
 
-    // tag::constraintError[]
-    // TODO: Handle Unique constraints in the database
-    if (email !== 'graphacademy@neo4j.com') {
-      throw new ValidationError(`An account already exists with the email address ${email}`, {
-        email: 'Email address taken'
-      })
-    }
-    // end::constraintError[]
-
     // Open a new session
-    const session = this.driver.session();
-    // Save user
-    const res = await session.writeTransaction((tx) =>
-      tx.run(
-        `CREATE (u:User {
-          userId: randomUuid(),
-          email: $email,
-          password: $encrypted,
-          name: $name
-        })
-        RETURN u`,
-        { email, encrypted, name }
-      )
-    );
-    // Extract safe properties from the user node (`u`) in the first row
-    const node = res.records[0].get("u");
-    const { password, ...safeProperties } = node.properties;
+    const session = this.driver.session()
 
-    // Close the session
-    await session.close();
-    return {
-      ...safeProperties,
-      token: jwt.sign(this.userToClaims(safeProperties), JWT_SECRET),
-    };
+    try {
+      // Save user
+      const res = await session.writeTransaction((tx) =>
+        tx.run(
+          `CREATE (u:User {
+        userId: randomUuid(),
+        email: $email,
+        password: $encrypted,
+        name: $name
+      })
+      RETURN u`,
+          { email, encrypted, name }
+        )
+      )
+
+      // Extract safe properties from the user node (`u`) in the first row
+      const node = res.records[0].get('u')
+      const { password, ...safeProperties } = node.properties
+
+      return {
+        ...safeProperties,
+        token: jwt.sign(this.userToClaims(safeProperties), JWT_SECRET)
+      }
+    } catch (error) {
+      // Handle unique constraints in the database
+      if (error.code === 'Neo.ClientError.Schema.ConstraintValidationFailed') {
+        throw new ValidationError(
+          `An account already exists with the email address ${email}`,
+          {
+            email: 'Email address taken'
+          }
+        )
+      }
+
+      throw error
+    } finally {
+      // Close the session
+      session.close()
+    }
   }
   // end::register[]
 
@@ -98,9 +106,12 @@ export default class AuthService {
    * @returns {Promise<Record<string, any> | false>}    Resolves to a false value when the user is not found or password is incorrect.
    */
   // tag::authenticate[]
-  async authenticate(email, unencryptedPassword) {
+  async authenticate (email, unencryptedPassword) {
     // TODO: Authenticate the user from the database
-    if (email === 'graphacademy@neo4j.com' && unencryptedPassword === 'letmein') {
+    if (
+      email === 'graphacademy@neo4j.com' &&
+      unencryptedPassword === 'letmein'
+    ) {
       const { password, ...claims } = user.properties
 
       return {
@@ -113,7 +124,6 @@ export default class AuthService {
   }
   // end::authenticate[]
 
-
   /**
    * @private
    * This method should take a user's properties and convert the "safe" properties into
@@ -122,10 +132,10 @@ export default class AuthService {
    * @param {Record<string, any>} user The User's properties from the database
    * @returns {Record<string, any>} Claims for the token
    */
-  userToClaims(user) {
+  userToClaims (user) {
     const { name, userId } = user
 
-    return { sub: userId, userId, name, }
+    return { sub: userId, userId, name }
   }
 
   /**
@@ -136,10 +146,10 @@ export default class AuthService {
    * @param {Record<string, any>} claims
    * @returns {Promise<Record<string, any>>}  The "safe" properties encoded above
    */
-  async claimsToUser(claims) {
+  async claimsToUser (claims) {
     return {
       ...claims,
-      userId: claims.sub,
+      userId: claims.sub
     }
   }
 }
