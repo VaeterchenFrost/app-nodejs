@@ -49,14 +49,31 @@ export default class AuthService {
     }
     // end::constraintError[]
 
-    // TODO: Save user
+    // Open a new session
+    const session = this.driver.session();
+    // Save user
+    const res = await session.writeTransaction((tx) =>
+      tx.run(
+        `CREATE (u:User {
+          userId: randomUuid(),
+          email: $email,
+          password: $encrypted,
+          name: $name
+        })
+        RETURN u`,
+        { email, encrypted, name }
+      )
+    );
+    // Extract safe properties from the user node (`u`) in the first row
+    const node = res.records[0].get("u");
+    const { password, ...safeProperties } = node.properties;
 
-    const { password, ...safeProperties } = user
-
+    // Close the session
+    await session.close();
     return {
       ...safeProperties,
       token: jwt.sign(this.userToClaims(safeProperties), JWT_SECRET),
-    }
+    };
   }
   // end::register[]
 
