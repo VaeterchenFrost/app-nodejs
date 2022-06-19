@@ -40,7 +40,7 @@ export default class MovieService {
   // tag::all[]
   async all(sort = 'title', order = 'ASC', limit = 6, skip = 0, userId = undefined) {
     // Open a new session
-    const session = this.driver.session();
+    const session = this.driver.session()
     // Execute a query in a new Read Transaction
     const res = await session.readTransaction((tx) =>
       tx.run(
@@ -54,7 +54,7 @@ export default class MovieService {
         `,
         { skip: int(skip), limit: int(limit) }
       )
-    );
+    )
 
     // Get a list of Movies from the Result
     const movies = res.records.map(row => toNativeTypes(row.get('movie')))
@@ -62,7 +62,7 @@ export default class MovieService {
     // Close the session
     await session.close() 
 
-    return movies;
+    return movies
   }
   // end::all[]
 
