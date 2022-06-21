@@ -1,8 +1,7 @@
+import { compare, hash } from 'bcrypt'
 import jwt from 'jsonwebtoken'
-import { hash, compare } from 'bcrypt'
-import { user } from '../../test/fixtures/users.js'
-import ValidationError from '../errors/validation.error.js'
 import { JWT_SECRET, SALT_ROUNDS } from '../constants.js'
+import ValidationError from '../errors/validation.error.js'
 
 export default class AuthService {
   /**
