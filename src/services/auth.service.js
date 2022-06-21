@@ -17,7 +17,7 @@ export default class AuthService {
    * @param {neo4j.Driver} driver
    */
   // tag::constructor[]
-  constructor (driver) {
+  constructor(driver) {
     this.driver = driver
   }
   // tag::constructor[]
@@ -37,7 +37,7 @@ export default class AuthService {
    * @returns {Promise<Record<string, any>>}
    */
   // tag::register[]
-  async register (email, plainPassword, name) {
+  async register(email, plainPassword, name) {
     const encrypted = await hash(plainPassword, parseInt(SALT_ROUNDS))
 
     // Open a new session
@@ -64,7 +64,7 @@ export default class AuthService {
 
       return {
         ...safeProperties,
-        token: jwt.sign(this.userToClaims(safeProperties), JWT_SECRET)
+        token: jwt.sign(this.userToClaims(safeProperties), JWT_SECRET),
       }
     } catch (error) {
       // Handle unique constraints in the database
@@ -72,7 +72,7 @@ export default class AuthService {
         throw new ValidationError(
           `An account already exists with the email address ${email}`,
           {
-            email: 'Email address taken'
+            email: 'Email address taken',
           }
         )
       }
@@ -106,21 +106,33 @@ export default class AuthService {
    * @returns {Promise<Record<string, any> | false>}    Resolves to a false value when the user is not found or password is incorrect.
    */
   // tag::authenticate[]
-  async authenticate (email, unencryptedPassword) {
-    // TODO: Authenticate the user from the database
-    if (
-      email === 'graphacademy@neo4j.com' &&
-      unencryptedPassword === 'letmein'
-    ) {
-      const { password, ...claims } = user.properties
+  async authenticate(email, unencryptedPassword) {
+    const session = this.driver.session()
 
-      return {
-        ...claims,
-        token: jwt.sign(claims, JWT_SECRET)
-      }
+    // Find the User node with a Read Transaction
+    const res = await session.readTransaction((tx) =>
+      tx.run('MATCH (u:User {email: $email}) RETURN u', { email })
+    )
+    // Close the session
+    await session.close()
+
+    // User not found, return false
+    if (res.records.length === 0) {
+      return false
     }
+    // Check password
+    const user = res.records[0].get('u')
+    const encryptedPassword = user.properties.password
 
-    return false
+    const correct = await compare(unencryptedPassword, encryptedPassword)
+    if (correct === false) return false
+
+    const { password, ...safeProperties } = user.properties
+
+    return {
+      ...safeProperties,
+      token: jwt.sign(this.userToClaims(safeProperties), JWT_SECRET),
+    }
   }
   // end::authenticate[]
 
@@ -132,7 +144,7 @@ export default class AuthService {
    * @param {Record<string, any>} user The User's properties from the database
    * @returns {Record<string, any>} Claims for the token
    */
-  userToClaims (user) {
+  userToClaims(user) {
     const { name, userId } = user
 
     return { sub: userId, userId, name }
@@ -146,10 +158,10 @@ export default class AuthService {
    * @param {Record<string, any>} claims
    * @returns {Promise<Record<string, any>>}  The "safe" properties encoded above
    */
-  async claimsToUser (claims) {
+  async claimsToUser(claims) {
     return {
       ...claims,
-      userId: claims.sub
+      userId: claims.sub,
     }
   }
 }
