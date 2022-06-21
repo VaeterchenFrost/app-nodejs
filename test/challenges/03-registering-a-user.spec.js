@@ -6,57 +6,57 @@ import { closeDriver, getDriver, initDriver } from '../../src/neo4j'
 import AuthService from '../../src/services/auth.service'
 
 describe('03. Registering a User', () => {
-    const email = 'graphacademy@neo4j.com'
-    const password = 'letmein'
-    const name = 'Graph Academy'
+  const email = 'graphacademy@neo4j.com'
+  const password = 'letmein'
+  const name = 'Graph Academy'
 
-    beforeAll(async () => {
-        config()
+  beforeAll(async () => {
+    config()
 
-        const {
-            NEO4J_URI,
-            NEO4J_USERNAME,
-            NEO4J_PASSWORD,
-        } = process.env
+    const {
+      NEO4J_URI,
+      NEO4J_USERNAME,
+      NEO4J_PASSWORD,
+    } = process.env
 
-        const driver = await initDriver(NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD)
+    const driver = await initDriver(NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD)
 
-        const session = driver.session()
-        await session.writeTransaction(tx =>
-            tx.run(`MATCH (u:User {email: $email}) DETACH DELETE u`, {email})
-        )
-        await session.close()
-    })
+    const session = driver.session()
+    await session.writeTransaction(tx =>
+      tx.run('MATCH (u:User {email: $email}) DETACH DELETE u', {email})
+    )
+    await session.close()
+  })
 
-    afterAll(async () => {
-        await closeDriver()
-    })
+  afterAll(async () => {
+    await closeDriver()
+  })
 
-    it('should register a user', async () => {
-        const driver = getDriver()
-        const service = new AuthService(driver)
+  it('should register a user', async () => {
+    const driver = getDriver()
+    const service = new AuthService(driver)
 
-        const output = await service.register(email, password, name)
+    const output = await service.register(email, password, name)
 
-        expect(output.email).toEqual(email)
-        expect(output.name).toEqual(name)
-        expect(output.password).toBeUndefined()
+    expect(output.email).toEqual(email)
+    expect(output.name).toEqual(name)
+    expect(output.password).toBeUndefined()
 
-        expect(output.token).toBeDefined()
+    expect(output.token).toBeDefined()
 
-        // Expect user exists in database
-        const session = await driver.session()
+    // Expect user exists in database
+    const session = await driver.session()
 
-        const res = await session.readTransaction(tx =>
-            tx.run('MATCH (u:User {email: $email}) RETURN u', { email })
-        )
+    const res = await session.readTransaction(tx =>
+      tx.run('MATCH (u:User {email: $email}) RETURN u', { email })
+    )
 
-        expect(res.records.length).toEqual(1)
+    expect(res.records.length).toEqual(1)
 
-        const user = res.records[0].get('u')
+    const user = res.records[0].get('u')
 
-        expect(user.properties.email).toEqual(email)
-        expect(user.properties.name).toEqual(name)
-        expect(user.properties.password).not.toEqual(password, 'Password should be hashed')
-    })
+    expect(user.properties.email).toEqual(email)
+    expect(user.properties.name).toEqual(name)
+    expect(user.properties.password).not.toEqual(password, 'Password should be hashed')
+  })
 })
